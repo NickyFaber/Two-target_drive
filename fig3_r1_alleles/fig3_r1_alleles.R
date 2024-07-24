@@ -114,11 +114,17 @@ model_output_gen110 <- main_drives[main_drives$generation==110,] %>%
   mutate(suppressed = case_when(popSize == 0 ~ 1,
                                 popSize > 0 ~ 0)) %>%
   group_by(DRIVE_TYPE, R1_OCCURRENCE_RATE) %>%
-  summarise(suppressionRate = sum(suppressed)/50)
+  summarise(suppressionRate = sum(suppressed)/50) %>%
+  mutate(suppRate_n = 50,
+         suppRateSEM = sqrt(suppressionRate * (1 - suppressionRate) / suppRate_n),
+         suppRate_lower_ci = suppressionRate - qt(1 - (0.05 / 2), suppRate_n - 1) * suppRateSEM,
+         suppRate_upper_ci = suppressionRate + qt(1 - (0.05 / 2), suppRate_n - 1) * suppRateSEM)
+
 model_output_gen110$R1_OCCURRENCE_RATE[model_output_gen110$R1_OCCURRENCE_RATE == 0] <- 10^-7
 
-p1 <- ggplot(data = model_output_gen110) +
-  geom_line(aes(x = log(R1_OCCURRENCE_RATE, 10), y = suppressionRate, colour = DRIVE_TYPE), na.rm = TRUE) +
+p1 <- ggplot(data = model_output_gen110, aes(x = log(R1_OCCURRENCE_RATE, 10), y = suppressionRate, group = DRIVE_TYPE)) +
+  geom_line(aes(colour = DRIVE_TYPE), position=position_dodge(width=0.2), na.rm = TRUE) +
+  geom_errorbar(position=position_dodge(width=0.2), linewidth = 0.25, width = 0.25, colour = "black", aes(ymin = suppRate_lower_ci, ymax = suppRate_upper_ci)) +
   scale_color_manual(values = met.brewer("Hiroshige", 3), name = "Female fertility suppression drive type") +
   guides(colour = guide_legend(ncol = 1, title.position = "top", override.aes = list(alpha = 1))) +
   scale_x_continuous(breaks = seq(-7, -1, 1), 
